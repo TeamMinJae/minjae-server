@@ -3,14 +3,13 @@ package wtf.minjae.minjae_server.service;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -22,6 +21,7 @@ import wtf.minjae.minjae_server.dto.VideoRequest;
 import wtf.minjae.minjae_server.dto.VideoResponse;
 
 @Service
+@Slf4j
 public class VideoService {
 
     private static final String VIDEO_PATH_FORMAT = "static/videos/%s.mp4";
@@ -39,21 +39,20 @@ public class VideoService {
 
     public VideoResponse generateVideo(VideoRequest request) throws IOException, InterruptedException {
         //basevideo에 맞는 원본 자막 파일 찾아오기
-        ClassPathResource videoResource = new ClassPathResource(String.format(VIDEO_PATH_FORMAT, request.baseVideo()));
-        validateVideo(videoResource);
+        log.info("basevideo에 맞는 원본 자막 파일 찾아오기");
+        File videoFile = new File(String.format(VIDEO_PATH_FORMAT, request.baseVideo()));
+        validateVideo(videoFile);
 
-        ClassPathResource subscriptionResource
-                = new ClassPathResource(String.format(SUBSCRIPTION_PATH_FORMAT, request.baseVideo()));
-        validateSubscription(subscriptionResource);
+        File subscriptionFile = new File(String.format(SUBSCRIPTION_PATH_FORMAT, request.baseVideo()));
+        validateSubscription(subscriptionFile);
 
         // 자막 파일 열어서 커스텀하기
-        String content;
-        try (InputStream is = subscriptionResource.getInputStream()) {
-            content = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-        }
+        log.info(" 자막 파일 열어서 커스텀하기");
+        String content = Files.readString(subscriptionFile.toPath(), StandardCharsets.UTF_8);
         String customizedContent = customizeSubscription(request, content);
 
         // 커스텀한 임시 자막 파일 저장
+        log.info(" 커스텀한 임시 자막 파일 저장");
         File dir = new File("temp");
         File customSubscription = File.createTempFile(request.roomId(), ".ass", dir);
         try (Writer writer = new OutputStreamWriter(new FileOutputStream(customSubscription), StandardCharsets.UTF_8)) {
@@ -61,18 +60,23 @@ public class VideoService {
         }
 
         // ffmeg로 동영상+자막 명령어 만들기
+        log.info(" ffmeg로 동영상+자막 명령어 만들기");
         // ffmeg 명렁어 실행
-        File outputVideo = mergeVideoWithSubtitle(request.roomId(), videoResource.getFile(),
+        log.info(" ffmeg 명렁어 실행");
+        File outputVideo = mergeVideoWithSubtitle(request.roomId(), videoFile,
                 customSubscription);
 
         // storage에 저장
+        log.info(" storage에 저장");
         String objectPath = upload(request, outputVideo);
 
         // 임시 자막 파일 삭제
+        log.info(" 임시 자막 파일 삭제");
         customSubscription.delete();
         outputVideo.delete();
-//        https://gtbdoyicgupqrnufqxte.supabase.co/storage/v1/object/public/videos//video_with_captions_217cfc65.mp4
+
         //url return
+        log.info("url return");
         return new VideoResponse(supabaseUrl +"/storage/v1/object/public/"+ objectPath);
     }
 
@@ -90,13 +94,13 @@ public class VideoService {
         return content;
     }
 
-    private void validateVideo(ClassPathResource videoResource) {
+    private void validateVideo(File videoResource) {
         if (!videoResource.exists()) {
             throw new IllegalArgumentException("Video does not exist");
         }
     }
 
-    private void validateSubscription(ClassPathResource subscriptionResource) {
+    private void validateSubscription(File subscriptionResource) {
         if (!subscriptionResource.exists()) {
             throw new IllegalArgumentException("Subscription does not exist");
         }
@@ -112,6 +116,7 @@ public class VideoService {
                 "ffmpeg",
                 "-y", // 기존 파일 덮어쓰기
                 "-i", videoFile.getAbsolutePath(), // 입력 비디오
+                "-preset", "superfast",
                 "-vf", "ass=" + subtitleFile.getAbsolutePath(), // 자막 필터
                 "-c:a", "copy", // 오디오 복사
                 outputFile.getAbsolutePath() // 출력 파일
@@ -130,7 +135,7 @@ public class VideoService {
         return outputFile;
     }
 
-    private String upload(VideoRequest request, File outputFile) throws IOException, InterruptedException {
+    private String upload(VideoRequest request, File outputFile) throws IOException {
 
         String objectPath = buket + "/" + request.roomId() + "_output.mp4";
         String uploadUrl = supabaseUrl + "/storage/v1/object/" + objectPath;
@@ -150,6 +155,5 @@ public class VideoService {
 
         return objectPath;
     }
-
 }
 
