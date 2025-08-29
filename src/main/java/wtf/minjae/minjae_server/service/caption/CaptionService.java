@@ -6,23 +6,25 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import wtf.minjae.minjae_server.domain.Caption;
 import wtf.minjae.minjae_server.dto.VideoRequest;
-import wtf.minjae.minjae_server.service.FileManager;
+import wtf.minjae.minjae_server.infra.CaptionRepository;
 
 @Service
 @RequiredArgsConstructor
 public class CaptionService {
 
-    private static final String CAPTION_EXTENSION = ".ass";
-
     private final CaptionCustomizer captionCustomizer;
-    private final FileManager fileManager;
+    private final CaptionRepository captionRepository;
 
-    public String customizeCaption(VideoRequest request, Caption caption) throws IOException {
-        return captionCustomizer.customizeCaption(request, caption);
+    public Caption customizeCaption(VideoRequest request, Caption caption) throws IOException {
+        String customizedContent = captionCustomizer.customizeCaption(request, caption);
+        return new Caption(customizedContent);
     }
 
-    public Caption createTempCaption(String name, String customizedContent) throws IOException {
-        File tempCaptionFile = fileManager.createTempFile(name, customizedContent, CAPTION_EXTENSION);
-        return new Caption(tempCaptionFile);
+    public File createTempCaption(String name, String customizedContent) throws IOException {
+        return captionRepository.save(name, customizedContent);
+    }
+
+    public Caption getBaseCaption(String baseVideoName) throws IOException {
+        return captionRepository.findBaseCaptionByName(baseVideoName);
     }
 }
