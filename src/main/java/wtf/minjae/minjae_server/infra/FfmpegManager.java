@@ -1,4 +1,4 @@
-package wtf.minjae.minjae_server.service;
+package wtf.minjae.minjae_server.infra;
 
 import java.io.File;
 import java.io.IOException;
@@ -9,27 +9,27 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class FfmpegManager {
 
-    public File mergeVideoWithCaption(String roomId, File videoFile, File captionFile)
+    public File mergeVideoWithCaption(String roomId, String videoFilePath, String captionFilePath)
             throws IOException, InterruptedException {
         log.info(" ffmeg로 동영상+자막 명령어 만들기");
         log.info(" ffmeg 명렁어 실행");
         // 출력 파일 경로
         File outputFile = new File("temp/" + roomId + "_output.mp4");
         // FFmpeg 명령어 문자열 생성
-        String[] command = generateCommand(videoFile, captionFile, outputFile);
+        String[] command = generateCommand(videoFilePath, captionFilePath, outputFile);
         // 명령어 실행
         executeCommand(command);
 
         return outputFile;
     }
 
-    private String[] generateCommand(File videoFile, File captionFile, File outputFile) {
+    private String[] generateCommand(String videoFilePath, String captionFilePath, File outputFile) {
         String[] command = {
                 "ffmpeg",
                 "-y", // 기존 파일 덮어쓰기
-                "-i", videoFile.getAbsolutePath(), // 입력 비디오
+                "-i", videoFilePath, // 입력 비디오
                 "-preset", "superfast",
-                "-vf", "ass=" + captionFile.getAbsolutePath(), // 자막 필터
+                "-vf", "ass=" + captionFilePath, // 자막 필터
                 "-c:a", "copy", // 오디오 복사
                 outputFile.getAbsolutePath() // 출력 파일
         };
