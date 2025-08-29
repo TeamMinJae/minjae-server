@@ -9,7 +9,7 @@ import wtf.minjae.minjae_server.dto.VideoRequest;
 
 @Component
 @Slf4j
-public class OmedettoCustomizer implements CaptionCustomizer {
+public class SimpleCustomizer implements CaptionCustomizer {
 
     private static final String DELIMITER = "##";
 
